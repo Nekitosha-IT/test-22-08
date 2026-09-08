@@ -1,0 +1,1179 @@
+<?php
+/*
+|--------------------------------------------------------------------------
+| UTM MONITOR
+|--------------------------------------------------------------------------
+| Интерфейс мониторинга УТМ.
+| API: api.php?action=status
+|--------------------------------------------------------------------------
+*/
+
+?>
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>UTM Monitor</title>
+
+    <style>
+        :root {
+            --bg:#070b14; --bg2:#0b1220; --panel:rgba(15,23,42,.86);
+            --border:rgba(148,163,184,.13); --border2:rgba(148,163,184,.24);
+            --text:#f1f5f9; --muted:#8492a8; --green:#22c55e; --red:#ef4444;
+            --orange:#f59e0b; --blue:#3b82f6; --purple:#8b5cf6; --cyan:#06b6d4;
+            --shadow:0 22px 60px rgba(0,0,0,.34);
+        }
+        *{box-sizing:border-box}
+        html{scroll-behavior:smooth}
+        body{margin:0;min-height:100vh;font-family:Inter,Segoe UI,Arial,sans-serif;color:var(--text);
+            background:radial-gradient(circle at 10% 0%,rgba(59,130,246,.14),transparent 30%),
+            radial-gradient(circle at 90% 0%,rgba(139,92,246,.12),transparent 27%),
+            linear-gradient(135deg,var(--bg),var(--bg2));background-attachment:fixed}
+        .header{position:sticky;top:0;z-index:50;padding:20px 30px;background:rgba(7,11,20,.78);border-bottom:1px solid var(--border);
+            backdrop-filter:blur(18px);-webkit-backdrop-filter:blur(18px);box-shadow:0 10px 35px rgba(0,0,0,.2)}
+        .title{font-size:28px;font-weight:850;letter-spacing:.4px}
+        .subtitle{margin-top:5px;color:var(--muted);font-size:12px;letter-spacing:.6px;text-transform:uppercase}
+        .toolbar{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+        button{position:relative;min-height:44px;border:1px solid rgba(255,255,255,.1);border-radius:12px;padding:0 18px;cursor:pointer;
+            color:#fff;background:linear-gradient(135deg,#2563eb,#4f46e5 55%,#7c3aed);font:800 12px Inter,Segoe UI,Arial,sans-serif;letter-spacing:.45px;
+            box-shadow:0 10px 28px rgba(37,99,235,.24),inset 0 1px 0 rgba(255,255,255,.12);transition:.2s ease}
+        button:hover{transform:translateY(-2px);filter:brightness(1.08);box-shadow:0 14px 34px rgba(37,99,235,.34),0 0 22px rgba(99,102,241,.14)}
+        button:active{transform:translateY(0) scale(.98)}
+        button.loading{pointer-events:none;opacity:.7}
+        button.loading::after{content:'';width:15px;height:15px;margin-left:9px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .8s linear infinite}
+        .container{width:min(1700px,calc(100% - 48px));margin:0 auto;padding:28px 0 45px}
+        .stats{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:15px;margin-bottom:20px}
+        .stat{position:relative;overflow:hidden;min-height:125px;padding:20px;border:1px solid var(--border);border-radius:17px;background:linear-gradient(145deg,rgba(17,25,40,.96),rgba(10,16,28,.88));box-shadow:var(--shadow);transition:.22s ease}
+        .stat:hover{transform:translateY(-3px);border-color:var(--border2)}
+        .stat::after{content:'';position:absolute;right:-50px;top:-50px;width:120px;height:120px;border-radius:50%;background:radial-gradient(circle,rgba(59,130,246,.16),transparent 70%)}
+        .stat-title{color:var(--muted);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.7px}
+        .stat-value{margin-top:10px;font-size:34px;line-height:1;font-weight:900}
+        .section{background:linear-gradient(145deg,rgba(15,23,42,.90),rgba(9,15,27,.88));border:1px solid var(--border);border-radius:17px;margin-bottom:20px;overflow:hidden;box-shadow:var(--shadow)}
+        .section-title{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 20px;font-size:16px;font-weight:800;border-bottom:1px solid var(--border);background:rgba(255,255,255,.015)}
+        .table-wrap{overflow:auto}
+        table{width:100%;min-width:1120px;border-collapse:separate;border-spacing:0}
+        th{padding:13px 15px;color:#718096;background:rgba(0,0,0,.14);border-bottom:1px solid var(--border);font-size:10px;font-weight:800;text-align:left;text-transform:uppercase;letter-spacing:.65px}
+        td{padding:14px 15px;border-bottom:1px solid rgba(148,163,184,.07);font-size:12px;white-space:nowrap}
+        tbody tr{transition:background .18s ease} tbody tr:hover{background:rgba(59,130,246,.045)} tbody tr:last-child td{border-bottom:0}
+        .online{display:inline-flex;align-items:center;gap:7px;color:#86efac;font-weight:800;background:rgba(34,197,94,.08);border:1px solid rgba(34,197,94,.14);padding:6px 9px;border-radius:8px}
+        .online::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 12px rgba(34,197,94,.75);animation:pulse 1.7s infinite}
+        .offline{display:inline-flex;align-items:center;gap:7px;color:#fca5a5;font-weight:800;background:rgba(239,68,68,.08);border:1px solid rgba(239,68,68,.14);padding:6px 9px;border-radius:8px}
+        .offline::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--red)}
+        .valid{color:#4ade80;font-weight:800}.warning{color:#fbbf24;font-weight:800}.critical,.expired,.invalid{color:#f87171;font-weight:800}.unknown{color:var(--muted);font-weight:700}
+        .cards{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px;padding:20px}
+        .card{min-width:0;padding:18px;border:1px solid var(--border);border-radius:13px;background:rgba(5,10,19,.52);transition:.2s ease}
+        .card:hover{transform:translateY(-2px);border-color:rgba(96,165,250,.2)}
+        .card h3{margin:0 0 15px;font-size:14px;font-weight:850}
+        .line{display:flex;justify-content:space-between;align-items:center;gap:18px;min-height:38px;padding:8px 0;border-bottom:1px solid rgba(148,163,184,.07)}
+        .line:last-child{border-bottom:0}.label{color:var(--muted);font-size:11px}.value{max-width:68%;text-align:right;font-size:11px;font-weight:700;overflow-wrap:anywhere}
+        .alerts{padding:20px}.alert{padding:14px 16px;border-radius:11px;margin-bottom:10px;background:rgba(245,158,11,.06);border:1px solid rgba(245,158,11,.12);border-left:4px solid var(--orange)}
+        .alert.critical{border-left-color:var(--red);background:rgba(239,68,68,.06);border-color:rgba(239,68,68,.14)}
+        .muted{color:var(--muted)}.footer{display:flex;justify-content:space-between;gap:15px;padding:18px 4px;color:#536174;font-size:10px}
+        .loading{min-height:140px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted);font-size:12px}
+        .loading::before{content:'';width:26px;height:26px;border-radius:50%;border:3px solid rgba(255,255,255,.08);border-top-color:var(--blue);animation:spin .8s linear infinite}
+        @keyframes spin{to{transform:rotate(360deg)}} @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.45;transform:scale(.78)}}
+        @media (max-width:1250px){.stats{grid-template-columns:repeat(3,1fr)}.cards{grid-template-columns:repeat(2,1fr)}}
+        @media (max-width:800px){.header{padding:18px}.container{width:calc(100% - 24px);padding-top:20px}.stats{grid-template-columns:repeat(2,1fr)}.cards{grid-template-columns:1fr}}
+        @media (max-width:520px){.stats{grid-template-columns:1fr}.title{font-size:23px}.footer{flex-direction:column}}
+    
+/* =========================================================
+   ADD UTM MODAL
+   ========================================================= */
+
+.utm-modal-overlay {
+    display:none;
+    position:fixed;
+    inset:0;
+    z-index:1000;
+    align-items:center;
+    justify-content:center;
+    padding:20px;
+    background:rgba(0,0,0,.68);
+    backdrop-filter:blur(8px);
+    -webkit-backdrop-filter:blur(8px);
+}
+
+.utm-modal-overlay.active {
+    display:flex;
+}
+
+.utm-modal {
+    width:min(480px,100%);
+    border:1px solid var(--border2);
+    border-radius:18px;
+    background:linear-gradient(145deg,rgba(17,25,40,.98),rgba(8,14,25,.98));
+    box-shadow:0 30px 90px rgba(0,0,0,.55);
+    overflow:hidden;
+    animation:modalIn .18s ease-out;
+}
+
+@keyframes modalIn {
+    from {
+        opacity:0;
+        transform:translateY(10px) scale(.98);
+    }
+    to {
+        opacity:1;
+        transform:translateY(0) scale(1);
+    }
+}
+
+.utm-modal-header {
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:18px 20px;
+    border-bottom:1px solid var(--border);
+}
+
+.utm-modal-title {
+    font-size:16px;
+    font-weight:850;
+}
+
+.utm-modal-close {
+    width:34px;
+    min-height:34px;
+    height:34px;
+    padding:0;
+    border-radius:9px;
+    background:rgba(255,255,255,.05);
+    box-shadow:none;
+    font-size:20px;
+    line-height:1;
+}
+
+.utm-modal-close:hover {
+    background:rgba(239,68,68,.15);
+}
+
+.utm-modal-body {
+    padding:20px;
+}
+
+.utm-form-group {
+    margin-bottom:15px;
+}
+
+.utm-form-group:last-child {
+    margin-bottom:0;
+}
+
+.utm-form-label {
+    display:block;
+    margin-bottom:7px;
+    color:var(--muted);
+    font-size:11px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.55px;
+}
+
+.utm-form-input {
+    width:100%;
+    height:44px;
+    padding:0 13px;
+    border:1px solid var(--border2);
+    border-radius:10px;
+    outline:none;
+    color:var(--text);
+    background:rgba(0,0,0,.25);
+    font:600 13px Inter,Segoe UI,Arial,sans-serif;
+    transition:.18s ease;
+}
+
+.utm-form-input:focus {
+    border-color:rgba(59,130,246,.65);
+    box-shadow:0 0 0 3px rgba(59,130,246,.12);
+}
+
+.utm-form-input::placeholder {
+    color:#526075;
+}
+
+.utm-modal-footer {
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    padding:16px 20px;
+    border-top:1px solid var(--border);
+    background:rgba(0,0,0,.12);
+}
+
+.utm-btn-secondary {
+    background:rgba(255,255,255,.06);
+    box-shadow:none;
+}
+
+.utm-btn-secondary:hover {
+    background:rgba(255,255,255,.1);
+    box-shadow:none;
+}
+
+        .utm-delete-button {
+            min-height: 34px;
+            padding: 0 12px;
+            border-radius: 9px;
+            border: 1px solid rgba(239,68,68,.25);
+            background: rgba(239,68,68,.10);
+            color: #fca5a5;
+            box-shadow: none;
+            font-size: 11px;
+            font-weight: 800;
+        }
+
+        .utm-delete-button:hover {
+            background: rgba(239,68,68,.20);
+            border-color: rgba(239,68,68,.45);
+            color: #fff;
+            box-shadow: 0 8px 20px rgba(239,68,68,.16);
+        }
+</style>
+</head>
+
+<body>
+
+<div class="header">
+    <div class="title">UTM MONITOR</div>
+    <div class="subtitle">Центр мониторинга ЕГАИС</div>
+
+    <div class="toolbar">
+        <button id="refreshButton" onclick="loadStatus(true)"><span>↻</span><span>ПРОВЕРИТЬ ВСЕ</span></button>
+            <button id="addUtmButton" type="button" onclick="openAddUtmModal()">
+            <span>＋</span><span>ДОБАВИТЬ УТМ</span>
+        </button>
+</div>
+</div>
+
+<div class="container">
+
+    <div class="stats">
+        <div class="stat">
+            <div class="stat-title">Всего УТМ</div>
+            <div class="stat-value" id="total">0</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">Online</div>
+            <div class="stat-value" id="online">0</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">Offline</div>
+            <div class="stat-value" id="offline">0</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">RSA</div>
+            <div class="stat-value" id="rsaCount">0</div>
+        </div>
+
+        <div class="stat">
+            <div class="stat-title">GOST</div>
+            <div class="stat-value" id="gostCount">0</div>
+        </div>
+    </div>
+
+
+    <div class="section">
+        <div class="section-title">Установленные УТМ</div>
+
+        <div id="tableContainer" class="loading">
+            Загрузка...
+        </div>
+    </div>
+
+
+    <div id="detailsContainer"></div>
+
+
+    <div class="section">
+        <div class="section-title">Предупреждения</div>
+
+        <div id="alertsContainer" class="alerts">
+            <div class="muted">Предупреждений нет.</div>
+        </div>
+    </div>
+
+</div>
+
+<div class="footer">
+    Автообновление: 10 секунд
+    <span id="lastUpdate"></span>
+</div>
+
+
+
+<!-- =========================================================
+     ADD UTM MODAL
+     ========================================================= -->
+
+<div id="utmModal" class="utm-modal-overlay" onclick="closeUtmModalByOverlay(event)">
+    <div class="utm-modal" role="dialog" aria-modal="true" aria-labelledby="utmModalTitle">
+
+        <div class="utm-modal-header">
+            <div id="utmModalTitle" class="utm-modal-title">Добавить УТМ</div>
+
+            <button
+                type="button"
+                class="utm-modal-close"
+                onclick="closeUtmModal()"
+                aria-label="Закрыть"
+            >×</button>
+        </div>
+
+        <div class="utm-modal-body">
+
+            <div class="utm-form-group">
+                <label class="utm-form-label" for="utmName">
+                    Название УТМ
+                </label>
+
+                <input
+                    type="text"
+                    id="utmName"
+                    class="utm-form-input"
+                    placeholder="Например: Сникерс"
+                    autocomplete="off"
+                >
+            </div>
+
+            <div class="utm-form-group">
+                <label class="utm-form-label" for="utmIp">
+                    IP / Host
+                </label>
+
+                <input
+                    type="text"
+                    id="utmIp"
+                    class="utm-form-input"
+                    placeholder="Например: 10.0.0.100"
+                    autocomplete="off"
+                >
+            </div>
+
+            <div class="utm-form-group">
+                <label class="utm-form-label" for="utmPort">
+                    Порт
+                </label>
+
+                <input
+                    type="number"
+                    id="utmPort"
+                    class="utm-form-input"
+                    placeholder="8086"
+                    value="8086"
+                    min="1"
+                    max="65535"
+                >
+            </div>
+
+        </div>
+
+        <div class="utm-modal-footer">
+
+            <button
+                type="button"
+                class="utm-btn-secondary"
+                onclick="closeUtmModal()"
+            >
+                Отмена
+            </button>
+
+            <button
+                type="button"
+                onclick="submitAddUtm()"
+            >
+                Добавить
+            </button>
+
+        </div>
+
+    </div>
+</div>
+
+<script>
+
+const API_URL = 'api.php?action=status';
+const REFRESH_SECONDS = 10;
+
+function escapeHtml(value) {
+
+    if (value === null || value === undefined) {
+        return '';
+    }
+
+    return String(value)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+}
+
+
+function certificateClass(status) {
+
+    if (!status) {
+        return 'unknown';
+    }
+
+    return status;
+}
+
+
+function certificateStatus(cert) {
+
+    if (!cert) {
+        return '<span class="unknown">НЕТ ДАННЫХ</span>';
+    }
+
+    const cls = certificateClass(cert.status);
+
+    let text = cert.status_text || 'Неизвестно';
+
+    if (cert.days_left !== null && cert.days_left !== undefined) {
+        text += ' — ' + cert.days_left + ' дн.';
+    }
+
+    return '<span class="' + cls + '">' +
+        escapeHtml(text) +
+        '</span>';
+}
+
+
+function certificateDate(cert) {
+
+    if (!cert || !cert.expire_date) {
+        return '—';
+    }
+
+    return escapeHtml(cert.expire_date);
+}
+
+
+function renderTable(utms) {
+
+    if (!utms.length) {
+
+        document.getElementById('tableContainer').innerHTML =
+            '<div class="loading">УТМ не настроены</div>';
+
+        return;
+    }
+
+    let html = `
+        <table>
+            <thead>
+                <tr>
+                    <th>#</th>
+                    <th>УТМ</th>
+                    <th>IP</th>
+                    <th>Статус</th>
+                    <th>API</th>
+                    <th>RSA</th>
+                    <th>GOST</th>
+                    <th>RSA до</th>
+                    <th>GOST до</th>
+                    <th>Лицензия</th>
+                    <th>Версия</th>
+                    <th>Ответ</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    utms.forEach((u, index) => {
+
+        const rsaInfo = u.rsa_info;
+        const gostInfo = u.gost_info;
+
+        let license = '—';
+
+        if (u.license) {
+            license = u.license;
+        } else if (u.info && u.info.license) {
+            license = u.info.license;
+        }
+
+        const statusClass =
+            u.online ? 'online' : 'offline';
+
+        const statusText =
+            u.online ? 'ONLINE' : 'OFFLINE';
+
+        html += `
+            <tr>
+                <td>${index + 1}</td>
+
+                <td>
+                    <strong>${escapeHtml(u.name)}</strong>
+                </td>
+
+                <td>
+                    ${escapeHtml(u.ip)}
+                </td>
+
+                <td>
+                    <span class="${statusClass}">
+                        ${statusText}
+                    </span>
+                </td>
+
+                <td>
+                    ${escapeHtml(u.port)}
+                </td>
+
+                <td>
+                    ${rsaInfo ? '1' : '0'}
+                </td>
+
+                <td>
+                    ${gostInfo ? '1' : '0'}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        rsaInfo && rsaInfo.valid_to
+                            ? rsaInfo.valid_to
+                            : '—'
+                    )}
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        gostInfo && gostInfo.valid_to
+                            ? gostInfo.valid_to
+                            : '—'
+                    )}
+                </td>
+
+                <td>
+                    <span class="${
+                        String(license).toLowerCase().includes('действ')
+                            ? 'valid'
+                            : 'unknown'
+                    }">
+                        ${escapeHtml(license)}
+                    </span>
+                </td>
+
+                <td>
+                    ${escapeHtml(
+                        u.version ||
+                        (u.info && u.info.version) ||
+                        '—'
+                    )}
+                </td>
+
+                <td>
+                    ${u.response_ms !== undefined
+                        ? 'Ответ ' + escapeHtml(u.response_ms) + ' мс'
+                        : '—'}
+                </td>
+
+                <td>
+                    <button
+                        type="button"
+                        class="utm-delete-button"
+                        onclick="deleteUtm(${Number(u.id)}, '${escapeHtml(u.name).replaceAll("'", "\\'")}')"
+                    >
+                        🗑 Удалить
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += `
+            </tbody>
+        </table>
+    `;
+
+    document.getElementById('tableContainer').innerHTML = html;
+}
+
+
+async function deleteUtm(id, name) {
+
+    if (!id || Number(id) < 1) {
+        alert('Ошибка: некорректный ID УТМ.');
+        return;
+    }
+
+    const confirmed = confirm(
+        'Удалить УТМ?\n\n' +
+        'Название: ' + name + '\n' +
+        'ID: ' + id + '\n\n' +
+        'Это действие нельзя отменить.'
+    );
+
+    if (!confirmed) {
+        return;
+    }
+
+    try {
+
+        const response = await fetch(
+            'api.php?action=delete_utm',
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    id: Number(id)
+                })
+            }
+        );
+
+        const text = await response.text();
+
+        let data;
+
+        try {
+            data = JSON.parse(text);
+        } catch (error) {
+            throw new Error(
+                'API вернул некорректный JSON: ' + text
+            );
+        }
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.error || 'Не удалось удалить УТМ.'
+            );
+        }
+
+        alert(
+            'УТМ успешно удалён.\n\n' +
+            'Название: ' + name
+        );
+
+        await loadStatus(true);
+
+    } catch (error) {
+
+        console.error(
+            'Ошибка удаления УТМ:',
+            error
+        );
+
+        alert(
+            'Не удалось удалить УТМ.\n\n' +
+            error.message
+        );
+    }
+}
+
+function renderDetails(utms) {
+
+    let html = '';
+
+    utms.forEach((u, index) => {
+
+        const rsa = u.rsa_info;
+        const gost = u.gost_info;
+
+        html += `
+            <div class="section">
+                <div class="section-title">
+                    УТМ №${index + 1} — ${escapeHtml(u.name)}
+                </div>
+
+                <div class="cards">
+
+                    <div class="card">
+                        <h3>RSA сертификат</h3>
+
+                        <div class="line">
+                            <span class="label">Сертификат</span>
+                            <span class="value">
+                                ${
+                                    u.rsa_aliases && u.rsa_aliases.length
+                                    ? escapeHtml(u.rsa_aliases.join(', '))
+                                    : '—'
+                                }
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Статус</span>
+                            <span class="value">
+                                ${certificateStatus(rsa)}
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Срок действия до</span>
+                            <span class="value">
+                                ${certificateDate(rsa)}
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Осталось</span>
+                            <span class="value">
+                                ${
+                                    rsa && rsa.days_left !== null
+                                    ? escapeHtml(rsa.days_left) + ' дней'
+                                    : '—'
+                                }
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Издатель</span>
+                            <span class="value">
+                                ${escapeHtml(rsa ? rsa.issuer : '—')}
+                            </span>
+                        </div>
+                    </div>
+
+
+                    <div class="card">
+                        <h3>GOST сертификат</h3>
+
+                        <div class="line">
+                            <span class="label">Сертификат</span>
+                            <span class="value">
+                                ${
+                                    u.gost_aliases && u.gost_aliases.length
+                                    ? escapeHtml(u.gost_aliases.join(', '))
+                                    : '—'
+                                }
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Статус</span>
+                            <span class="value">
+                                ${certificateStatus(gost)}
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Срок действия до</span>
+                            <span class="value">
+                                ${certificateDate(gost)}
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Осталось</span>
+                            <span class="value">
+                                ${
+                                    gost && gost.days_left !== null
+                                    ? escapeHtml(gost.days_left) + ' дней'
+                                    : '—'
+                                }
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Издатель</span>
+                            <span class="value">
+                                ${escapeHtml(gost ? gost.issuer : '—')}
+                            </span>
+                        </div>
+                    </div>
+
+
+                    <div class="card">
+                        <h3>Основные параметры УТМ</h3>
+
+                        <div class="line">
+                            <span class="label">Версия</span>
+                            <span class="value">
+                                ${escapeHtml(u.version || '—')}
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Контур</span>
+                            <span class="value">
+                                ${escapeHtml(u.contour || '—')}
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">FSRAR ID</span>
+                            <span class="value">
+                                ${escapeHtml(u.owner_id || '—')}
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Лицензия</span>
+                            <span class="value">
+                                ${
+                                    u.license === true
+                                    ? '<span class="valid">ДЕЙСТВУЕТ</span>'
+                                    : '<span class="critical">НЕТ</span>'
+                                }
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">База УТМ</span>
+                            <span class="value">
+                                ${escapeHtml(
+                                    u.db && u.db.create_date
+                                    ? u.db.create_date
+                                    : '—'
+                                )}
+                            </span>
+                        </div>
+                    </div>
+
+
+                    <div class="card">
+                        <h3>Документы</h3>
+
+                        <div class="line">
+                            <span class="label">Входящие</span>
+                            <span class="value">
+                                ${
+                                    u.documents &&
+                                    u.documents.incoming !== null
+                                    ? escapeHtml(u.documents.incoming)
+                                    : '—'
+                                }
+                            </span>
+                        </div>
+
+                        <div class="line">
+                            <span class="label">Исходящие</span>
+                            <span class="value">
+                                ${
+                                    u.documents &&
+                                    u.documents.outgoing !== null
+                                    ? escapeHtml(u.documents.outgoing)
+                                    : '—'
+                                }
+                            </span>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        `;
+    });
+
+    document.getElementById('detailsContainer').innerHTML = html;
+}
+
+
+function renderAlerts(utms) {
+
+    let alerts = [];
+
+    utms.forEach((u, index) => {
+
+        if (Array.isArray(u.warnings)) {
+
+            u.warnings.forEach(w => {
+
+                alerts.push({
+                    index: index + 1,
+                    name: u.name,
+                    level: w.level || 'warning',
+                    message: w.message
+                });
+
+            });
+        }
+
+    });
+
+    const container = document.getElementById('alertsContainer');
+
+    if (!alerts.length) {
+
+        container.innerHTML =
+            '<div class="muted">✅ Критических предупреждений нет.</div>';
+
+        return;
+    }
+
+    let html = '';
+
+    alerts.forEach(a => {
+
+        html += `
+            <div class="alert ${escapeHtml(a.level)}">
+                <strong>УТМ №${a.index} — ${escapeHtml(a.name)}</strong><br>
+                ${escapeHtml(a.message)}
+            </div>
+        `;
+
+    });
+
+    container.innerHTML = html;
+}
+
+
+async function loadStatus(manual = false) {
+
+    const button = document.getElementById('refreshButton');
+    if (manual) button.classList.add('loading');
+
+    try {
+
+        const response = await fetch(
+            API_URL + '&_=' + Date.now(),
+            {
+                cache: 'no-store'
+            }
+        );
+
+        const data = await response.json();
+
+        if (!data.success) {
+            throw new Error(
+                data.error || 'Ошибка API'
+            );
+        }
+
+        const utms = Array.isArray(data.utms)
+            ? data.utms
+            : [];
+
+        const online = utms.filter(
+            u => u.online
+        ).length;
+
+        const offline = utms.length - online;
+
+        const rsa = utms.reduce(
+            (sum, u) => sum + Number(u.rsa || 0),
+            0
+        );
+
+        const gost = utms.reduce(
+            (sum, u) => sum + Number(u.gost || 0),
+            0
+        );
+
+        document.getElementById('total').textContent = utms.length;
+        document.getElementById('online').textContent = online;
+        document.getElementById('offline').textContent = offline;
+        document.getElementById('rsaCount').textContent = rsa;
+        document.getElementById('gostCount').textContent = gost;
+
+        renderTable(utms);
+        renderDetails(utms);
+        renderAlerts(utms);
+
+        document.getElementById('lastUpdate').textContent =
+            ' | Обновлено: ' +
+            new Date().toLocaleTimeString('ru-RU');
+
+    } catch (error) {
+
+        document.getElementById('tableContainer').innerHTML =
+            '<div class="alert critical">' +
+            'Ошибка мониторинга: ' +
+            escapeHtml(error.message) +
+            '</div>';
+
+    } finally {
+        if (button) button.classList.remove('loading');
+    }
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| Первый запуск
+|--------------------------------------------------------------------------
+*/
+loadStatus();
+
+
+/*
+|--------------------------------------------------------------------------
+| Автообновление
+|--------------------------------------------------------------------------
+*/
+setInterval(
+    loadStatus,
+    REFRESH_SECONDS * 1000
+);
+
+
+
+/* =========================================================
+   ADD UTM MODAL
+   ========================================================= */
+
+function openAddUtmModal() {
+    const modal = document.getElementById('utmModal');
+
+    if (!modal) {
+        console.error('utmModal не найден');
+        return;
+    }
+
+    modal.classList.add('active');
+
+    const nameInput = document.getElementById('utmName');
+
+    if (nameInput) {
+        setTimeout(function () {
+            nameInput.focus();
+        }, 50);
+    }
+}
+
+function closeUtmModal() {
+    const modal = document.getElementById('utmModal');
+
+    if (!modal) {
+        return;
+    }
+
+    modal.classList.remove('active');
+}
+
+function closeUtmModalByOverlay(event) {
+    if (event.target === event.currentTarget) {
+        closeUtmModal();
+    }
+}
+
+function submitAddUtm() {
+
+    const nameElement = document.getElementById('utmName');
+    const ipElement = document.getElementById('utmIp');
+    const portElement = document.getElementById('utmPort');
+
+    if (!nameElement || !ipElement || !portElement) {
+        alert('Ошибка: элементы формы УТМ не найдены.');
+        return;
+    }
+
+    const name = nameElement.value.trim();
+    const ip = ipElement.value.trim();
+    const port = portElement.value.trim();
+
+    if (!name) {
+        alert('Введите название УТМ.');
+        nameElement.focus();
+        return;
+    }
+
+    if (!ip) {
+        alert('Введите IP / Host УТМ.');
+        ipElement.focus();
+        return;
+    }
+
+    const portNumber = Number(port);
+
+    if (
+        !port ||
+        !Number.isInteger(portNumber) ||
+        portNumber < 1 ||
+        portNumber > 65535
+    ) {
+        alert('Введите корректный порт от 1 до 65535.');
+        portElement.focus();
+        return;
+    }
+
+    const button = document.querySelector(
+        '#utmModal button[onclick="submitAddUtm()"]'
+    );
+
+    if (button) {
+        button.disabled = true;
+        button.textContent = 'Добавление...';
+    }
+
+    fetch('api.php?action=add_utm', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            name: name,
+            ip: ip,
+            port: portNumber
+        })
+    })
+    .then(async function(response) {
+
+        const text = await response.text();
+
+        let data;
+
+        try {
+            data = JSON.parse(text);
+        } catch (error) {
+            throw new Error(
+                'API вернул некорректный JSON: ' + text
+            );
+        }
+
+        if (!response.ok || !data.success) {
+            throw new Error(
+                data.error || 'Не удалось добавить УТМ.'
+            );
+        }
+
+        return data;
+    })
+    .then(function(data) {
+
+        closeUtmModal();
+
+        nameElement.value = '';
+        ipElement.value = '';
+        portElement.value = '8080';
+
+        alert(
+            'УТМ успешно добавлен.\n\n' +
+            'Название: ' + name + '\n' +
+            'Host: ' + ip + '\n' +
+            'Порт: ' + portNumber
+        );
+
+        loadStatus(true);
+    })
+    .catch(function(error) {
+
+        console.error('Ошибка добавления УТМ:', error);
+
+        alert(
+            'Не удалось добавить УТМ.\n\n' +
+            error.message
+        );
+    })
+    .finally(function() {
+
+        if (button) {
+            button.disabled = false;
+            button.textContent = 'Добавить';
+        }
+    });
+}
+document.addEventListener('keydown', function(event) {
+
+    if (event.key === 'Escape') {
+        const modal = document.getElementById('utmModal');
+
+        if (modal && modal.classList.contains('active')) {
+            closeUtmModal();
+        }
+    }
+
+});
+
+</script>
+
+</body>
+</html>

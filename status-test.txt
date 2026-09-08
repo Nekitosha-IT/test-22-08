@@ -1,0 +1,67 @@
+﻿{
+    "success": true,
+    "utms": [
+        {
+            "id": 1,
+            "name": "╨б╨╜╨╕╨║╨╡╤А╤Б",
+            "ip": "10.0.0.100",
+            "port": 8086,
+            "online": true,
+            "response_time": 1096,
+            "http_code": 200,
+            "error": null,
+            "version": "4.2.0",
+            "contour": "prod",
+            "owner_id": "030000604800",
+            "license": true,
+            "db": {
+                "create_date": "2026-02-11 18:19:37.472",
+                "owner_id": "030000604800"
+            },
+            "rsa": 1,
+            "gost": 1,
+            "rsa_aliases": [
+                "FSRAR-RSA-030000604800"
+            ],
+            "gost_aliases": [
+                "2026-08-14 15-28, Kaunova Yuliya, Fizicheskoe litso"
+            ],
+            "rsa_info": {
+                "cert_type": "RSA",
+                "issuer": "pki.fsrar.ru",
+                "start_date": "2026-08-18 02:06:42 +0300",
+                "expire_date": "18.08.2027 02:16:42",
+                "is_valid": true,
+                "status": "valid",
+                "status_text": "╨Ф╨Х╨Щ╨б╨в╨Т╨Ш╨в╨Х╨Ы╨Х╨Э",
+                "days_left": 351,
+                "warning": null
+            },
+            "gost_info": {
+                "cert_type": "GOST",
+                "issuer": "╨Ю╨Ю╨Ю \"╨Э╨Я╨ж \"1╨б\"",
+                "start_date": "2026-08-14 15:29:00 +0300",
+                "expire_date": "14.08.2027 15:29:00",
+                "is_valid": true,
+                "status": "valid",
+                "status_text": "╨Ф╨Х╨Щ╨б╨в╨Т╨Ш╨в╨Х╨Ы╨Х╨Э",
+                "days_left": 348,
+                "warning": null
+            },
+            "documents": {
+                "incoming": 0,
+                "outgoing": 9
+            },
+            "certificates": {
+                "rsa": [
+                    "FSRAR-RSA-030000604800"
+                ],
+                "gost": [
+                    "2026-08-14 15-28, Kaunova Yuliya, Fizicheskoe litso"
+                ]
+            },
+            "warnings": []
+        }
+    ],
+    "server_time": "31.08.2026 01:35:45"
+}

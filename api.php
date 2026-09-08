@@ -638,7 +638,7 @@ function buildUtmStatus(
     if ($ip === '') {
 
         return [
-            'id' => $id,
+            'id' => (int)$utm['id'],
             'name' =>
                 $utm['name']
                 ?? ('РЈРўРњ в„–' . $id),
@@ -782,7 +782,7 @@ function buildUtmStatus(
     }
 
     return [
-        'id' => $id,
+        'id' => (int)$utm['id'],
 
         'name' =>
             $utm['name']
@@ -888,19 +888,41 @@ function getTimeout(): int
    STATUS
    ========================================================= */
 
+function requireUtm(int $id): array
+{
+    global $db;
+
+    if ($id <= 0) {
+        jsonResponse([
+            'success' => false,
+            'error' => 'е указан ID Т'
+        ], 400);
+    }
+
+    $utm = getUtm($db, $id);
+
+    if ($utm === null) {
+        jsonResponse([
+            'success' => false,
+            'error' => 'Т не найден',
+            'id' => $id
+        ], 404);
+    }
+
+    return $utm;
+}
 function actionStatus(): void
 {
-    global $config;
+    global $db;
 
     $result = [];
 
     $timeout =
         getTimeout();
 
-    foreach (
-        ($config['utms'] ?? [])
-        as $id => $utm
-    ) {
+    $utms = getAllUtms($db);
+
+    foreach ($utms as $utm) {
 
         if (
             empty($utm['enabled']) ||
@@ -913,7 +935,7 @@ function actionStatus(): void
 
             $result[] =
                 buildUtmStatus(
-                    $id,
+                    (int)$utm['id'],
                     $utm,
                     $timeout
                 );
@@ -921,7 +943,7 @@ function actionStatus(): void
         } catch (Throwable $e) {
 
             $result[] = [
-                'id' => $id,
+                'id' => (int)$utm['id'],
                 'name' =>
                     $utm['name']
                     ?? ('РЈРўРњ в„–' . $id),
@@ -963,21 +985,12 @@ function actionStatus(): void
 
 function actionCertificates(): void
 {
-    global $config;
+    global $db;
 
     $id =
         (int)($_GET['id'] ?? 0);
-
-    if (!isset($config['utms'][$id])) {
-
-        jsonResponse([
-            'success' => false,
-            'error' => 'РЈРўРњ РЅРµ РЅР°Р№РґРµРЅ'
-        ], 404);
-    }
-
-    $utm =
-        $config['utms'][$id];
+$utm =
+        requireUtm($id);
 
     $timeout =
         getTimeout();
@@ -1014,7 +1027,7 @@ function actionCertificates(): void
         'success' => true,
 
         'utm' => [
-            'id' => $id,
+            'id' => (int)$utm['id'],
             'name' =>
                 $utm['name'],
             'ip' =>
@@ -1052,21 +1065,12 @@ function actionCertificates(): void
 
 function actionInfo(): void
 {
-    global $config;
+    global $db;
 
     $id =
         (int)($_GET['id'] ?? 0);
-
-    if (!isset($config['utms'][$id])) {
-
-        jsonResponse([
-            'success' => false,
-            'error' => 'РЈРўРњ РЅРµ РЅР°Р№РґРµРЅ'
-        ], 404);
-    }
-
-    $utm =
-        $config['utms'][$id];
+$utm =
+        requireUtm($id);
 
     $answer =
         getUtmInfo(
@@ -1154,7 +1158,7 @@ function validateMarkCode(string $code): array
 
 function actionMarkCheck(): void
 {
-    global $config;
+    global $db;
 
     $id =
         (int)($_GET['id'] ?? 0);
@@ -1163,16 +1167,7 @@ function actionMarkCheck(): void
         trim(
             (string)($_GET['code'] ?? '')
         );
-
-    if (!isset($config['utms'][$id])) {
-
-        jsonResponse([
-            'success' => false,
-            'error' => 'РЈРўРњ РЅРµ РЅР°Р№РґРµРЅ'
-        ], 404);
-    }
-
-    if ($code === '') {
+if ($code === '') {
 
         jsonResponse([
             'success' => false,
@@ -1200,7 +1195,7 @@ function actionMarkCheck(): void
     }
 
     $utm =
-        $config['utms'][$id];
+        requireUtm($id);
 
     $ip =
         trim(
@@ -1370,7 +1365,7 @@ function actionDocuments(
     string $direction
 ): void {
 
-    global $config;
+    global $db;
 
     $id =
         (int)($_GET['id'] ?? 0);
@@ -1392,17 +1387,8 @@ function actionDocuments(
             0,
             $offset
         );
-
-    if (!isset($config['utms'][$id])) {
-
-        jsonResponse([
-            'success' => false,
-            'error' => 'РЈРўРњ РЅРµ РЅР°Р№РґРµРЅ'
-        ], 404);
-    }
-
-    $utm =
-        $config['utms'][$id];
+$utm =
+        requireUtm($id);
 
     $path =
         $direction === 'in'
@@ -1452,7 +1438,7 @@ function actionDocuments(
 
 function actionTtn(): void
 {
-    global $config;
+    global $db;
 
     $id =
         (int)($_GET['id'] ?? 0);
@@ -1474,17 +1460,8 @@ function actionTtn(): void
             0,
             $offset
         );
-
-    if (!isset($config['utms'][$id])) {
-
-        jsonResponse([
-            'success' => false,
-            'error' => 'РЈРўРњ РЅРµ РЅР°Р№РґРµРЅ'
-        ], 404);
-    }
-
-    $utm =
-        $config['utms'][$id];
+$utm =
+        requireUtm($id);
 
     $answer =
         requestUtm(
@@ -1527,21 +1504,12 @@ function actionTtn(): void
 
 function actionDiagnostics(): void
 {
-    global $config;
+    global $db;
 
     $id =
         (int)($_GET['id'] ?? 0);
-
-    if (!isset($config['utms'][$id])) {
-
-        jsonResponse([
-            'success' => false,
-            'error' => 'РЈРўРњ РЅРµ РЅР°Р№РґРµРЅ'
-        ], 404);
-    }
-
-    $utm =
-        $config['utms'][$id];
+$utm =
+        requireUtm($id);
 
     $ip =
         trim(
@@ -1569,7 +1537,7 @@ function actionDiagnostics(): void
         'success' => true,
 
         'utm' => [
-            'id' => $id,
+            'id' => (int)$utm['id'],
             'name' =>
                 $utm['name']
                 ?? null,
